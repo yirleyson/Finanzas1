@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mis Finanzas</title>
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#ffffff">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f5f4ef;--bg3:#ebebea;
+  --txt:#1a1a18;--txt2:#888780;--txt3:#b4b2a9;
+  --border:#e5e4df;--border2:#d3d1c7;
+  --r:8px;--rl:12px;
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#1a1a18;--bg2:#2c2c2a;--bg3:#3a3a38;--txt:#f1efe8;--txt2:#888780;--txt3:#5f5e5a;--border:#3a3a38;--border2:#444441}
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow:hidden}
+.app{max-width:480px;margin:0 auto;display:flex;flex-direction:column;height:100dvh;overflow:hidden;position:relative}
+
+/* TOPBAR */
+.topbar{flex-shrink:0;padding:.7rem 1rem .45rem;display:flex;align-items:center;gap:8px;background:var(--bg);border-bottom:.5px solid var(--border);z-index:10}
+.topbar-titles{flex:1}.topbar-date{font-size:11px;color:var(--txt2)}.topbar-name{font-size:17px;font-weight:500}
+.scroll-body{flex:1;overflow-y:auto;padding:1rem;-webkit-overflow-scrolling:touch}
+.tab-bar{flex-shrink:0;display:flex;border-top:.5px solid var(--border);background:var(--bg);padding:.2rem 0 env(safe-area-inset-bottom,.05rem)}
+.tab{flex:1;padding:5px 2px 4px;font-size:10px;text-align:center;cursor:pointer;border:none;background:transparent;color:var(--txt2);border-top:2px solid transparent;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tab.active{color:var(--txt);border-top:2px solid var(--txt);font-weight:500}
+.tab-icon{font-size:17px;line-height:1}.tab-label{font-size:10px;line-height:1}
+.section{display:none}.section.active{display:block}
+
+/* CARDS */
+.card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--rl);padding:.875rem 1rem;margin-bottom:.875rem}
+.card-title{font-size:12px;font-weight:500;color:var(--txt2);margin-bottom:.625rem;display:flex;align-items:center;gap:5px}
+
+/* METRICS */
+.summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:1rem}
+.metric{background:var(--bg2);border-radius:var(--r);padding:10px 8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px}
+.metric-icon{font-size:20px;line-height:1}.metric-label{font-size:11px;color:var(--txt2)}.metric-value{font-size:17px;font-weight:500}
+.pos{color:#0F6E56}.neg{color:#993C1D}.neu{color:var(--txt)}.sav{color:#185FA5}
+
+/* BOTONES */
+.btn-top{width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--txt2);font-size:15px;flex-shrink:0}
+.btn-add{padding:6px 12px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;cursor:pointer;font-size:13px;color:var(--txt);display:flex;align-items:center;gap:5px;white-space:nowrap}
+.btn-full{width:100%;padding:8px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;cursor:pointer;font-size:13px;color:var(--txt);display:flex;align-items:center;justify-content:center;gap:6px;margin-top:.5rem}
+.btn-save{width:100%;padding:9px;border-radius:var(--r);border:none;background:var(--txt);color:var(--bg);font-size:14px;font-weight:500;cursor:pointer;margin-top:.5rem}
+.icon-btn{width:26px;height:26px;border-radius:6px;border:.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--txt2);font-size:13px}
+.icon-btn.del:hover{background:#FAECE7;color:#993C1D}
+
+/* TRANSACCIONES */
+.txn{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--border)}.txn:last-child{border-bottom:none}
+.txn-ico{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.txn-info{flex:1;min-width:0}.txn-name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.txn-cat{font-size:11px;color:var(--txt2)}
+.txn-amount{font-size:13px;font-weight:500;white-space:nowrap}.txn-actions{display:flex;gap:3px}
+
+/* BARRAS */
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.bar-label{font-size:11px;color:var(--txt2);width:84px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;height:7px;background:var(--bg2);border-radius:4px;overflow:hidden}.bar-fill{height:100%;border-radius:4px}
+.bar-val{font-size:11px;color:var(--txt2);width:68px;text-align:right}
+
+/* CHIPS */
+.chip{padding:4px 10px;border-radius:20px;font-size:12px;cursor:pointer;border:.5px solid var(--border2);background:transparent;color:var(--txt2)}
+.chip.sel{background:var(--txt);color:var(--bg);border-color:var(--txt)}
+
+/* TIPS */
+.tip-card{border-left:3px solid;border-radius:0 var(--r) var(--r) 0;padding:.625rem .875rem;margin-bottom:.625rem;font-size:13px;line-height:1.5}
+.tip-card.w{border-color:#993C1D;background:#FAECE7;color:#712B13}.tip-card.s{border-color:#0F6E56;background:#E1F5EE;color:#085041}
+.tip-card.i{border-color:#185FA5;background:#E6F1FB;color:#0C447C}.tip-card.n{border-color:#888780;background:var(--bg2);color:var(--txt)}
+@media(prefers-color-scheme:dark){
+.tip-card.w{background:#4A1B0C;color:#F5C4B3}.tip-card.s{background:#04342C;color:#9FE1CB}.tip-card.i{background:#042C53;color:#B5D4F4}
+}
+
+/* DEUDA / AHORRO / FIJOS */
+.item-card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--rl);padding:.875rem 1rem;margin-bottom:.75rem;cursor:pointer;transition:background .1s}
+.item-card:hover{background:var(--bg2)}
+.prog-track{height:9px;background:var(--bg2);border-radius:5px;overflow:hidden;margin-bottom:3px}.prog-fill{height:100%;border-radius:5px}
+.dstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:.625rem}
+.dstat{background:var(--bg2);border-radius:var(--r);padding:6px;text-align:center}.dstat-val{font-size:12px;font-weight:500}.dstat-lbl{font-size:10px;color:var(--txt2)}
+.abono-row{display:flex;gap:6px;margin-top:.625rem;padding-top:.625rem;border-top:.5px solid var(--border)}
+.abono-input{flex:1;padding:6px 8px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--bg);color:var(--txt);font-size:13px}
+.abono-btn{padding:6px 10px;border-radius:var(--r);background:var(--txt);color:var(--bg);font-size:12px;cursor:pointer;border:none;white-space:nowrap}
+
+/* RINGS */
+.ring-wrap{position:relative;width:60px;height:60px;flex-shrink:0}
+.ring-wrap svg{transform:rotate(-90deg)}
+.ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.ring-pct{font-size:13px;font-weight:500}.ring-lbl{font-size:9px;color:var(--txt2)}
+
+/* INV */
+.inv-card{background:var(--bg);border:.5px solid #185FA5;border-radius:var(--rl);padding:.875rem 1rem;margin-bottom:.75rem;cursor:pointer;transition:background .1s}
+.inv-card:hover{background:#E6F1FB}
+.inv-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.inv-stat{background:#E6F1FB;border-radius:var(--r);padding:6px;text-align:center}
+.inv-stat-val{font-size:12px;font-weight:500;color:#0C447C}.inv-stat-lbl{font-size:10px;color:#185FA5}
+@media(prefers-color-scheme:dark){.inv-card:hover{background:#042C53}.inv-stat{background:#042C53}.inv-stat-val{color:#B5D4F4}.inv-stat-lbl{color:#378ADD}}
+
+/* BADGES */
+.badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500}
+.b-ok{background:#E1F5EE;color:#085041}.b-due{background:#FAECE7;color:#712B13}.b-soon{background:#E6F1FB;color:#0C447C}
+@media(prefers-color-scheme:dark){.b-ok{background:#04342C;color:#9FE1CB}.b-due{background:#4A1B0C;color:#F5C4B3}.b-soon{background:#042C53;color:#B5D4F4}}
+
+/* ALERTAS */
+.notif{display:flex;gap:8px;padding:9px;border-radius:var(--r);border-left:3px solid;margin-bottom:7px}
+.notif.w{border-color:#D85A30;background:#FAECE7}.notif.a{border-color:#993C1D;background:#FAECE7}.notif.ok{border-color:#1D9E75;background:#E1F5EE}
+.notif-ico{width:30px;height:30px;border-radius:7px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+@media(prefers-color-scheme:dark){.notif.w,.notif.a{background:#4A1B0C}.notif.ok{background:#04342C}}
+
+/* TL */
+.tl-item{display:flex;gap:8px;padding:7px 0;border-bottom:.5px solid var(--border)}.tl-item:last-child{border-bottom:none}
+.tl-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px;border:1.5px solid}
+.tl-dot.p{background:#E1F5EE;border-color:#1D9E75}.tl-dot.e{background:#E6F1FB;border-color:#378ADD}.tl-dot.a{background:#E6F1FB;border-color:#185FA5}
+.tl-body{flex:1}.tl-name{font-size:12px;font-weight:500}.tl-date{font-size:11px;color:var(--txt2)}
+.tl-right{text-align:right;flex-shrink:0}
+.tag{font-size:10px;padding:2px 7px;border-radius:10px;display:inline-block;margin-bottom:1px}
+.tag-p{background:#E1F5EE;color:#085041}.tag-e,.tag-a{background:#E6F1FB;color:#0C447C}
+@media(prefers-color-scheme:dark){.tag-p{background:#04342C;color:#9FE1CB}.tag-e,.tag-a{background:#042C53;color:#B5D4F4}}
+
+/* DETALLE */
+.detail-screen{display:none;position:absolute;inset:0;background:var(--bg);z-index:30;flex-direction:column;overflow:hidden}
+.detail-screen.open{display:flex}
+.detail-topbar{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:.75rem 1rem;border-bottom:.5px solid var(--border);background:var(--bg)}
+.back-btn{width:32px;height:32px;border-radius:50%;border:.5px solid var(--border2);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--txt2);font-size:16px;flex-shrink:0}
+.detail-body{flex:1;overflow-y:auto;padding:1rem}
+.stat-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:.75rem}
+.stat-box{background:var(--bg2);border-radius:var(--r);padding:10px 12px}
+.stat-box-val{font-size:17px;font-weight:500}.stat-box-lbl{font-size:11px;color:var(--txt2);margin-top:2px}
+
+/* MODAL */
+.modal-wrap{display:none;position:absolute;inset:0;z-index:50;align-items:flex-end;justify-content:center}
+.modal-wrap.open{display:flex}
+.modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.modal-sheet{position:relative;z-index:1;background:var(--bg);border-radius:16px 16px 0 0;padding:1.125rem 1.125rem calc(1.5rem + env(safe-area-inset-bottom,0px));width:100%;max-height:90dvh;overflow-y:auto}
+.modal-title{font-size:15px;font-weight:500;margin-bottom:.875rem;display:flex;justify-content:space-between;align-items:center}
+.close-btn{background:none;border:none;cursor:pointer;color:var(--txt2);font-size:20px;line-height:1}
+.tipo-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:.875rem}
+.tipo-btn{padding:7px 4px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;cursor:pointer;font-size:11px;color:var(--txt2);display:flex;align-items:center;justify-content:center;gap:4px}
+.t-ing{background:#E1F5EE;border-color:#1D9E75;color:#085041;font-weight:500}
+.t-exp{background:#FAECE7;border-color:#D85A30;color:#712B13;font-weight:500}
+.t-deu{background:#E6F1FB;border-color:#378ADD;color:#0C447C;font-weight:500}
+.t-sav{background:#E6F1FB;border-color:#185FA5;color:#0C447C;font-weight:500}
+.t-rec{background:#F1EFE8;border-color:#888780;color:#444441;font-weight:500}
+@media(prefers-color-scheme:dark){
+.t-ing{background:#085041;border-color:#1D9E75;color:#9FE1CB}.t-exp{background:#4A1B0C;border-color:#D85A30;color:#F5C4B3}
+.t-deu{background:#042C53;border-color:#378ADD;color:#B5D4F4}.t-sav{background:#042C53;border-color:#185FA5;color:#B5D4F4}
+.t-rec{background:#2C2C2A;border-color:#888780;color:#D3D1C7}
+}
+.cat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:.75rem}
+.cat-btn{padding:7px 4px;border-radius:var(--r);border:.5px solid var(--border);background:var(--bg2);cursor:pointer;font-size:11px;color:var(--txt2);display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;line-height:1.2}
+.cat-btn.sel{border-color:var(--txt);color:var(--txt);background:var(--bg);font-weight:500}
+.sav-type-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:.75rem}
+.sav-type-btn{padding:8px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;cursor:pointer;font-size:12px;color:var(--txt2);display:flex;flex-direction:column;align-items:center;gap:4px}
+.sel-meta{background:#E6F1FB;border-color:#185FA5;color:#0C447C;font-weight:500}
+.sel-inv{background:#E1F5EE;border-color:#0F6E56;color:#085041;font-weight:500}
+.form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:.625rem}
+.form-row label{font-size:12px;color:var(--txt2)}
+.form-row input,.form-row select{width:100%;padding:7px 10px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--bg);color:var(--txt);font-size:14px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.625rem}
+.info-box{background:var(--bg2);border-radius:var(--r);padding:.625rem .875rem;font-size:12px;color:var(--txt2);margin-bottom:.75rem;line-height:1.5}
+.hidden{display:none}
+.toggle{width:42px;height:22px;border-radius:11px;background:var(--bg2);border:.5px solid var(--border2);cursor:pointer;position:relative;flex-shrink:0}
+.toggle.on{background:#1D9E75;border-color:#1D9E75}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:white;transition:.2s}
+.toggle.on::after{left:22px}
+.set-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:.5px solid var(--border)}.set-row:last-child{border-bottom:none}
+.tab-ico-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:.5rem 0}
+.ico-opt{width:100%;aspect-ratio:1;border-radius:var(--r);border:.5px solid var(--border);background:var(--bg2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:19px}
+.ico-opt.sel{border-color:var(--txt);background:var(--bg)}
+.loading{text-align:center;padding:2rem;color:var(--txt2);font-size:14px}
+.paid-section-title{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:#0F6E56;margin:.875rem 0 .5rem;cursor:pointer}
+.arrow-toggle{transition:.2s;display:inline-block;font-size:11px}.arrow-toggle.open{transform:rotate(90deg)}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-titles">
+    <div class="topbar-date" id="topbar-date"></div>
+    <div class="topbar-name">Mis finanzas</div>
+  </div>
+  <button class="btn-top" onclick="openTips()" title="Consejos">💡</button>
+  <button class="btn-add" onclick="openModal()">＋ Agregar</button>
+  <button class="btn-top" onclick="openSettings()" title="Configuración">⚙️</button>
+</div>
+
+<!-- SCROLL BODY -->
+<div class="scroll-body" id="scroll-body">
+
+  <!-- RESUMEN -->
+  <div id="tab-resumen" class="section active">
+    <div class="summary-grid">
+      <div class="metric"><div class="metric-icon">📈</div><div class="metric-label">Ingresos</div><div class="metric-value pos" id="t-ing">$0</div></div>
+      <div class="metric"><div class="metric-icon">📉</div><div class="metric-label">Gastos</div><div class="metric-value neg" id="t-gas">$0</div></div>
+      <div class="metric"><div class="metric-icon">💵</div><div class="metric-label">Disponible</div><div class="metric-value neu" id="t-dis">$0</div></div>
+      <div class="metric"><div class="metric-icon">💳</div><div class="metric-label">Deuda total</div><div class="metric-value neg" id="t-deu">$0</div></div>
+    </div>
+    <div class="card"><div class="card-title">Distribución de gastos</div><div id="gasto-bars"><div class="loading">Sin gastos aún.</div></div></div>
+    <div class="card">
+      <div class="card-title">Ingresos vs gastos</div>
+      <div style="position:relative;height:130px"><canvas id="barChart" role="img" aria-label="Comparativo de ingresos y gastos mensuales">Comparativo mensual de ingresos y gastos.</canvas></div>
+      <div style="display:flex;gap:14px;margin-top:6px;font-size:11px;color:var(--txt2)">
+        <span style="display:flex;align-items:center;gap:3px"><span style="width:9px;height:9px;border-radius:2px;background:#1D9E75;display:inline-block"></span>Ingresos</span>
+        <span style="display:flex;align-items:center;gap:3px"><span style="width:9px;height:9px;border-radius:2px;background:#D85A30;display:inline-block"></span>Gastos</span>
+      </div>
+    </div>
+    <div class="card"><div class="card-title">Últimos abonos a deudas</div><div id="historial-res"><div class="loading">Sin abonos aún.</div></div></div>
+  </div>
+
+  <!-- MOVIMIENTOS -->
+  <div id="tab-movimientos" class="section">
+    <div style="display:flex;gap:5px;margin-bottom:.875rem;flex-wrap:wrap">
+      <button class="chip sel" onclick="filterTxn('todos',this)">Todos</button>
+      <button class="chip" onclick="filterTxn('ingreso',this)">Ingresos</button>
+      <button class="chip" onclick="filterTxn('gasto',this)">Gastos</button>
+    </div>
+    <div class="card"><div id="txn-list"><div class="loading">Cargando...</div></div></div>
+  </div>
+
+  <!-- DEUDAS -->
+  <div id="tab-deudas" class="section">
+    <div class="info-box">Toca una tarjeta para ver el historial completo y estadísticas.</div>
+    <div id="debt-active-list"><div class="loading">Cargando...</div></div>
+    <div id="paid-section" class="hidden">
+      <div class="paid-section-title" onclick="togglePaid()">✅ Deudas pagadas <span class="arrow-toggle" id="paid-arrow">›</span></div>
+      <div id="debt-paid-list" class="hidden"></div>
+    </div>
+    <button class="btn-full" onclick="openModal('deuda')">＋ Nueva deuda</button>
+  </div>
+
+  <!-- AHORROS -->
+  <div id="tab-ahorros" class="section">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:12px;color:var(--txt2)">Total ahorrado</div><div style="font-size:20px;font-weight:500;color:#185FA5" id="saving-total">$0</div></div>
+        <div style="text-align:right"><div style="font-size:12px;color:var(--txt2)">Metas activas</div><div style="font-size:20px;font-weight:500" id="saving-count">0</div></div>
+      </div>
+    </div>
+    <div class="info-box">Toca una tarjeta para ver el historial completo y estadísticas.</div>
+    <div id="saving-goals-list"><div class="loading">Cargando...</div></div>
+    <div id="inv-list"></div>
+    <button class="btn-full" onclick="openModal('ahorro')">＋ Nueva meta / inversión</button>
+  </div>
+
+  <!-- FIJOS -->
+  <div id="tab-recurrentes" class="section">
+    <div class="info-box">Suscripciones y pagos fijos. Toca una tarjeta para ver el historial de cobros.</div>
+    <div id="recur-list"><div class="loading">Cargando...</div></div>
+    <button class="btn-full" onclick="openModal('recurrente')">＋ Agregar gasto fijo</button>
+  </div>
+
+  <!-- ALERTAS -->
+  <div id="tab-notificaciones" class="section">
+    <div class="card"><div class="card-title">🔔 Alertas activas</div><div id="notif-list"></div></div>
+    <div class="card">
+      <div class="card-title">Ventana de recordatorio</div>
+      <div style="font-size:12px;color:var(--txt2);margin-bottom:.75rem">¿Con cuántos días de anticipación avisamos?</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="chip sel" onclick="setPeriod('1-5',this)">Del 1 al 5</button>
+        <button class="chip" onclick="setPeriod('15-20',this)">Del 15 al 20</button>
+        <button class="chip" onclick="setPeriod('exacto',this)">Día exacto</button>
+        <button class="chip" onclick="setPeriod('custom',this)">Personalizado</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button class="tab active" onclick="showTab('resumen',this)"><span class="tab-icon" id="tabi-resumen">📊</span><span class="tab-label">Resumen</span></button>
+  <button class="tab" onclick="showTab('movimientos',this)"><span class="tab-icon" id="tabi-movimientos">📋</span><span class="tab-label">Movimientos</span></button>
+  <button class="tab" onclick="showTab('deudas',this)"><span class="tab-icon" id="tabi-deudas">💳</span><span class="tab-label">Deudas</span></button>
+  <button class="tab" onclick="showTab('ahorros',this)"><span class="tab-icon" id="tabi-ahorros">🐷</span><span class="tab-label">Ahorros</span></button>
+  <button class="tab" onclick="showTab('recurrentes',this)"><span class="tab-icon" id="tabi-recurrentes">🔁</span><span class="tab-label">Fijos</span></button>
+  <button class="tab" onclick="showTab('notificaciones',this)"><span class="tab-icon" id="tabi-notificaciones">🔔</span><span class="tab-label">Alertas</span></button>
+</div>
+
+<!-- PANTALLA DETALLE -->
+<div class="detail-screen" id="detail-screen">
+  <div class="detail-topbar">
+    <button class="back-btn" onclick="closeDetail()">‹</button>
+    <div style="flex:1;overflow:hidden">
+      <div style="font-size:16px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="detail-title">Detalle</div>
+      <div style="font-size:11px;color:var(--txt2)" id="detail-subtitle"></div>
+    </div>
+    <button class="icon-btn" onclick="openDetailEdit()" title="Editar">✏️</button>
+  </div>
+  <div class="detail-body" id="detail-body"></div>
+</div>
+
+<!-- MODALES -->
+<div class="modal-wrap" id="modal">
+  <div class="modal-overlay" onclick="closeModal()"></div>
+  <div class="modal-sheet">
+    <div class="modal-title">Nuevo movimiento <button class="close-btn" onclick="closeModal()">×</button></div>
+    <div class="tipo-row">
+      <button class="tipo-btn t-ing" id="btn-ing" onclick="setTipo('ingreso')">↑ Ingreso</button>
+      <button class="tipo-btn" id="btn-exp" onclick="setTipo('gasto')">↓ Gasto</button>
+      <button class="tipo-btn" id="btn-deu" onclick="setTipo('deuda')">💳 Deuda</button>
+      <button class="tipo-btn" id="btn-sav" onclick="setTipo('ahorro')">🐷 Ahorro</button>
+      <button class="tipo-btn" id="btn-rec" onclick="setTipo('recurrente')">🔁 Gasto fijo</button>
+    </div>
+    <div id="fields-txn">
+      <div class="form-row" style="margin-bottom:.5rem"><label>Categoría</label></div>
+      <div class="cat-grid" id="cat-grid"></div>
+      <div class="hidden" id="custom-row"><input type="text" id="custom-cat" placeholder="Escribe tu categoría..." style="width:100%;padding:7px 10px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--bg);color:var(--txt);font-size:14px;margin-bottom:.625rem"></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Descripción</label><input type="text" id="desc-inp" placeholder="Ej: Mercado"></div>
+        <div class="form-row"><label>Monto ($)</label><input type="text" id="monto-inp" placeholder="150.000" inputmode="numeric"></div>
+      </div>
+      <div class="form-row"><label>Fecha</label><input type="date" id="fecha-inp"></div>
+    </div>
+    <div id="fields-deu" class="hidden">
+      <div class="form-grid">
+        <div class="form-row"><label>Nombre</label><input type="text" id="deu-name" placeholder="Celular Samsung"></div>
+        <div class="form-row"><label>Ícono</label>
+          <select id="deu-ico"><option value="📱">📱 Celular</option><option value="💻">💻 Computador</option><option value="🚗">🚗 Vehículo</option><option value="🏠">🏠 Inmueble</option><option value="💊">💊 Salud</option><option value="📚">📚 Educación</option><option value="💳">💳 Tarjeta</option><option value="🤝">🤝 Préstamo</option><option value="💰">💰 Otro</option></select>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Monto total ($)</label><input type="text" id="deu-total" placeholder="1.000.000" inputmode="numeric"></div>
+        <div class="form-row"><label>Cuotas totales</label><input type="number" id="deu-cuotas" placeholder="6" min="1"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Cuotas pagadas</label><input type="number" id="deu-pagadas" placeholder="0" min="0"></div>
+        <div class="form-row"><label>Ya pagado ($)</label><input type="text" id="deu-pagado" placeholder="0" inputmode="numeric"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Fecha inicio</label><input type="date" id="deu-fecha"></div>
+        <div class="form-row"><label>Día vencimiento</label><input type="number" id="deu-vence" placeholder="1" min="1" max="31"></div>
+      </div>
+    </div>
+    <div id="fields-sav" class="hidden">
+      <div class="sav-type-row">
+        <button class="sav-type-btn sel-meta" id="sav-btn-meta" onclick="setSavType('meta')">🎯<span style="font-size:11px">Meta de ahorro</span></button>
+        <button class="sav-type-btn" id="sav-btn-inv" onclick="setSavType('inversion')">📈<span style="font-size:11px">CDT / Inversión</span></button>
+      </div>
+      <div id="sav-fields-meta">
+        <div class="form-grid">
+          <div class="form-row"><label>Nombre</label><input type="text" id="sav-name" placeholder="Viaje a Cartagena"></div>
+          <div class="form-row"><label>Ícono</label>
+            <select id="sav-ico"><option value="✈️">✈️ Viaje</option><option value="🏠">🏠 Vivienda</option><option value="💻">💻 Tecnología</option><option value="🚗">🚗 Vehículo</option><option value="🎓">🎓 Educación</option><option value="🛡️">🛡️ Emergencia</option><option value="🎁">🎁 Regalo</option><option value="🌱">🌱 Otro</option></select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-row"><label>Meta total ($)</label><input type="text" id="sav-meta" placeholder="3.000.000" inputmode="numeric"></div>
+          <div class="form-row"><label>Ya ahorrado ($)</label><input type="text" id="sav-actual" placeholder="0" inputmode="numeric"></div>
+        </div>
+        <div class="form-row"><label>Fecha objetivo</label><input type="date" id="sav-fecha"></div>
+      </div>
+      <div id="sav-fields-inv" class="hidden">
+        <div class="form-grid">
+          <div class="form-row"><label>Nombre</label><input type="text" id="inv-name" placeholder="CDT Bancolombia"></div>
+          <div class="form-row"><label>Entidad</label><input type="text" id="inv-entidad" placeholder="Bancolombia"></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-row"><label>Capital ($)</label><input type="text" id="inv-capital" placeholder="2.000.000" inputmode="numeric"></div>
+          <div class="form-row"><label>Tasa (%)</label><input type="text" id="inv-tasa" placeholder="8.5" inputmode="decimal"></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-row"><label>Período</label><select id="inv-periodo"><option value="anual">Anual (E.A.)</option><option value="mensual">Mensual</option></select></div>
+          <div class="form-row"><label>Fecha inicio</label><input type="date" id="inv-fecha"></div>
+        </div>
+        <div class="form-row"><label>Duración (meses)</label><input type="number" id="inv-meses" placeholder="12" min="1"></div>
+        <div class="info-box" id="inv-preview">Completa los campos para ver la proyección.</div>
+      </div>
+    </div>
+    <div id="fields-rec" class="hidden">
+      <div class="form-grid">
+        <div class="form-row"><label>Nombre</label><input type="text" id="rec-name" placeholder="Spotify"></div>
+        <div class="form-row"><label>Ícono</label>
+          <select id="rec-ico"><option value="🎵">🎵 Música</option><option value="🎬">🎬 Streaming</option><option value="📺">📺 TV/Cable</option><option value="🤖">🤖 IA/Tech</option><option value="🏠">🏠 Arriendo</option><option value="💡">💡 Servicios</option><option value="🌐">🌐 Internet</option><option value="📱">📱 Plan celular</option><option value="🏋️">🏋️ Gimnasio</option><option value="📚">📚 Educación</option><option value="☁️">☁️ Almacenamiento</option><option value="🎮">🎮 Juegos</option><option value="🔁">🔁 Otro</option></select>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Monto mensual ($)</label><input type="text" id="rec-monto" placeholder="17.900" inputmode="numeric"></div>
+        <div class="form-row"><label>Día de cobro</label><input type="number" id="rec-dia" placeholder="15" min="1" max="31"></div>
+      </div>
+      <div class="form-row"><label>Notas</label><input type="text" id="rec-nota" placeholder="Plan familiar"></div>
+    </div>
+    <button class="btn-save" onclick="guardar()">✓ Guardar</button>
+  </div>
+</div>
+
+<div class="modal-wrap" id="modal-edit">
+  <div class="modal-overlay" onclick="closeEdit()"></div>
+  <div class="modal-sheet">
+    <div class="modal-title">Editar movimiento <button class="close-btn" onclick="closeEdit()">×</button></div>
+    <div class="form-row"><label>Descripción</label><input type="text" id="edit-desc"></div>
+    <div class="form-grid">
+      <div class="form-row"><label>Monto ($)</label><input type="text" id="edit-monto" inputmode="numeric"></div>
+      <div class="form-row"><label>Fecha</label><input type="date" id="edit-fecha"></div>
+    </div>
+    <button class="btn-save" onclick="saveEdit()">Guardar cambios</button>
+  </div>
+</div>
+
+<div class="modal-wrap" id="modal-det-edit">
+  <div class="modal-overlay" onclick="document.getElementById('modal-det-edit').classList.remove('open')"></div>
+  <div class="modal-sheet" id="modal-det-edit-body"></div>
+</div>
+
+<div class="modal-wrap" id="modal-sav-abono">
+  <div class="modal-overlay" onclick="document.getElementById('modal-sav-abono').classList.remove('open')"></div>
+  <div class="modal-sheet">
+    <div class="modal-title">Abonar a meta <button class="close-btn" onclick="document.getElementById('modal-sav-abono').classList.remove('open')">×</button></div>
+    <div style="font-size:14px;font-weight:500;margin-bottom:.75rem" id="sav-abono-name"></div>
+    <div class="form-row"><label>Monto ($)</label><input type="text" id="sav-abono-monto" inputmode="numeric" placeholder="100.000"></div>
+    <div class="form-row"><label>Nota (opcional)</label><input type="text" id="sav-abono-nota" placeholder="Ahorro quincena"></div>
+    <button class="btn-save" onclick="guardarAbonoSaving()">Abonar</button>
+  </div>
+</div>
+
+<div class="modal-wrap" id="modal-tips">
+  <div class="modal-overlay" onclick="closeTips()"></div>
+  <div class="modal-sheet">
+    <div class="modal-title">💡 Consejos <button class="close-btn" onclick="closeTips()">×</button></div>
+    <div id="tips-list"></div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="modal-settings">
+  <div class="modal-overlay" onclick="closeSettings()"></div>
+  <div class="modal-sheet">
+    <div class="modal-title">Configuración <button class="close-btn" onclick="closeSettings()">×</button></div>
+    <div class="card" style="margin-bottom:.75rem">
+      <div class="set-row"><div style="font-size:14px">Modo oscuro</div><button class="toggle" id="toggle-dark" onclick="toggleDark()"></button></div>
+      <div class="set-row"><div style="font-size:14px">Idioma</div>
+        <select id="lang-select" onchange="setLang(this.value)" style="padding:5px 8px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--bg);color:var(--txt);font-size:13px"><option value="es">Español</option><option value="en">English</option></select>
+      </div>
+      <div class="set-row"><div style="font-size:14px">Moneda</div>
+        <select id="currency-select" onchange="setCurrency(this.value)" style="padding:5px 8px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--bg);color:var(--txt);font-size:13px"><option value="COP">COP $</option><option value="USD">USD $</option></select>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:500;color:var(--txt2);margin-bottom:.5rem">Personalizar íconos de pestañas</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:.75rem" id="tab-chips"></div>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:.5rem">Ícono para: <strong id="editing-tab-name">Resumen</strong></div>
+    <div class="tab-ico-grid" id="emoji-picker"></div>
+    <button class="btn-full" onclick="document.getElementById('img-upload').click()">📷 Subir imagen propia</button>
+    <input type="file" id="img-upload" accept="image/*" style="display:none" onchange="handleImgUpload(event)">
+  </div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
