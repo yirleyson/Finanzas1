@@ -2,52 +2,51 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from typing import Optional, List
-import sqlite3, json, os
+from typing import Optional
+import os
 from datetime import date
 from pathlib import Path
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = FastAPI(title="Mis Finanzas")
 
-# Obtener la ruta del directorio actual
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
-
-# Crear directorios si no existen
 STATIC_DIR.mkdir(exist_ok=True)
 TEMPLATES_DIR.mkdir(exist_ok=True)
 
-# ── Servir archivos estáticos ──────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# ── Base de datos ──────────────────────────────────────────────────────────────
-DB = str(BASE_DIR / "finanzas.db")
+# ── Base de datos PostgreSQL ───────────────────────────────────────────────────
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://postgres:password@helium/heliumdb?sslmode=disable"
+)
 
 def get_db():
-    conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return conn
 
 def init_db():
     conn = get_db()
     cur = conn.cursor()
-
-    cur.executescript("""
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS movimientos (
-        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        id        SERIAL PRIMARY KEY,
         tipo      TEXT NOT NULL,
         cat       TEXT,
         cat_label TEXT,
         cat_ico   TEXT,
         cat_color TEXT,
-        desc      TEXT,
+        descr     TEXT,
         monto     REAL,
         fecha     TEXT
     );
 
     CREATE TABLE IF NOT EXISTS deudas (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        id       SERIAL PRIMARY KEY,
         name     TEXT,
         ico      TEXT,
         color    TEXT,
@@ -60,7 +59,7 @@ def init_db():
     );
 
     CREATE TABLE IF NOT EXISTS deuda_pagos (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        id       SERIAL PRIMARY KEY,
         deuda_id INTEGER,
         fecha    TEXT,
         monto    REAL,
@@ -69,7 +68,7 @@ def init_db():
     );
 
     CREATE TABLE IF NOT EXISTS ahorros (
-        id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        id     SERIAL PRIMARY KEY,
         type   TEXT DEFAULT 'meta',
         name   TEXT,
         ico    TEXT,
@@ -79,7 +78,7 @@ def init_db():
     );
 
     CREATE TABLE IF NOT EXISTS ahorro_abonos (
-        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        id        SERIAL PRIMARY KEY,
         ahorro_id INTEGER,
         fecha     TEXT,
         monto     REAL,
@@ -87,26 +86,27 @@ def init_db():
     );
 
     CREATE TABLE IF NOT EXISTS inversiones (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
-        name     TEXT,
-        entidad  TEXT,
-        capital  REAL,
-        tasa     REAL,
-        periodo  TEXT DEFAULT 'anual',
-        fecha    TEXT,
-        meses    INTEGER DEFAULT 12
+        id        SERIAL PRIMARY KEY,
+        name      TEXT,
+        entidad   TEXT,
+        capital   REAL,
+        tasa      REAL,
+        periodo   TEXT DEFAULT 'anual',
+        fecha     TEXT,
+        meses     INTEGER DEFAULT 12,
+        sin_plazo BOOLEAN DEFAULT FALSE
     );
 
     CREATE TABLE IF NOT EXISTS inv_movimientos (
-        id      INTEGER PRIMARY KEY AUTOINCREMENT,
-        inv_id  INTEGER,
-        fecha   TEXT,
-        monto   REAL,
-        nota    TEXT
+        id     SERIAL PRIMARY KEY,
+        inv_id INTEGER,
+        fecha  TEXT,
+        monto  REAL,
+        nota   TEXT
     );
 
     CREATE TABLE IF NOT EXISTS recurrentes (
-        id    INTEGER PRIMARY KEY AUTOINCREMENT,
+        id    SERIAL PRIMARY KEY,
         name  TEXT,
         ico   TEXT,
         color TEXT,
@@ -116,18 +116,19 @@ def init_db():
     );
 
     CREATE TABLE IF NOT EXISTS recurrente_pagos (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
-        rec_id   INTEGER,
-        fecha    TEXT,
-        monto    REAL
+        id     SERIAL PRIMARY KEY,
+        rec_id INTEGER,
+        fecha  TEXT,
+        monto  REAL
     );
     """)
     conn.commit()
+    cur.close()
     conn.close()
 
 init_db()
 
-# ── Modelos Pydantic ───────────────────────────────────────────────────────────
+# ── Modelos ────────────────────────────────────────────────────────────────────
 
 class Movimiento(BaseModel):
     tipo: str
@@ -135,7 +136,7 @@ class Movimiento(BaseModel):
     cat_label: Optional[str] = ""
     cat_ico: Optional[str] = ""
     cat_color: Optional[str] = ""
-    desc: str
+    descr: str
     monto: float
     fecha: str
 
@@ -176,7 +177,8 @@ class Inversion(BaseModel):
     tasa: float
     periodo: Optional[str] = "anual"
     fecha: str
-    meses: Optional[int] = 12
+    meses: Optional[int] = 0
+    sin_plazo: Optional[bool] = False
 
 class InvMovimiento(BaseModel):
     fecha: str
@@ -202,17 +204,16 @@ def rows_to_list(rows):
 
 def get_historial(table, fk_col, fk_id, conn):
     cur = conn.cursor()
-    rows = cur.execute(
-        f"SELECT * FROM {table} WHERE {fk_col}=? ORDER BY fecha ASC", (fk_id,)
-    ).fetchall()
+    cur.execute(f"SELECT * FROM {table} WHERE {fk_col}=%s ORDER BY fecha ASC", (fk_id,))
+    rows = cur.fetchall()
+    cur.close()
     return rows_to_list(rows)
 
 # ── Página principal ───────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 def root():
-    index_path = TEMPLATES_DIR / "index.html"
-    with open(index_path, encoding="utf-8") as f:
+    with open(TEMPLATES_DIR / "index.html", encoding="utf-8") as f:
         return f.read()
 
 # ── MOVIMIENTOS ────────────────────────────────────────────────────────────────
@@ -220,42 +221,41 @@ def root():
 @app.get("/api/movimientos")
 def listar_movimientos():
     conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM movimientos ORDER BY fecha DESC"
-    ).fetchall()
-    conn.close()
-    return rows_to_list(rows)
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM movimientos ORDER BY fecha DESC")
+    rows = rows_to_list(cur.fetchall())
+    cur.close(); conn.close()
+    return rows
 
 @app.post("/api/movimientos")
 def crear_movimiento(m: Movimiento):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO movimientos (tipo,cat,cat_label,cat_ico,cat_color,desc,monto,fecha) VALUES (?,?,?,?,?,?,?,?)",
-        (m.tipo, m.cat, m.cat_label, m.cat_ico, m.cat_color, m.desc, m.monto, m.fecha)
+        "INSERT INTO movimientos (tipo,cat,cat_label,cat_ico,cat_color,descr,monto,fecha) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+        (m.tipo, m.cat, m.cat_label, m.cat_ico, m.cat_color, m.descr, m.monto, m.fecha)
     )
-    conn.commit()
-    row_id = cur.lastrowid
-    conn.close()
+    row_id = cur.fetchone()["id"]
+    conn.commit(); cur.close(); conn.close()
     return {"id": row_id, **m.dict()}
 
 @app.put("/api/movimientos/{mid}")
 def editar_movimiento(mid: int, m: Movimiento):
     conn = get_db()
-    conn.execute(
-        "UPDATE movimientos SET tipo=?,cat=?,cat_label=?,cat_ico=?,cat_color=?,desc=?,monto=?,fecha=? WHERE id=?",
-        (m.tipo, m.cat, m.cat_label, m.cat_ico, m.cat_color, m.desc, m.monto, m.fecha, mid)
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE movimientos SET tipo=%s,cat=%s,cat_label=%s,cat_ico=%s,cat_color=%s,descr=%s,monto=%s,fecha=%s WHERE id=%s",
+        (m.tipo, m.cat, m.cat_label, m.cat_ico, m.cat_color, m.descr, m.monto, m.fecha, mid)
     )
-    conn.commit()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 @app.delete("/api/movimientos/{mid}")
 def borrar_movimiento(mid: int):
     conn = get_db()
-    conn.execute("DELETE FROM movimientos WHERE id=?", (mid,))
-    conn.commit()
-    conn.close()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM movimientos WHERE id=%s", (mid,))
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 # ── DEUDAS ─────────────────────────────────────────────────────────────────────
@@ -263,10 +263,12 @@ def borrar_movimiento(mid: int):
 @app.get("/api/deudas")
 def listar_deudas():
     conn = get_db()
-    deudas = rows_to_list(conn.execute("SELECT * FROM deudas ORDER BY id").fetchall())
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM deudas ORDER BY id")
+    deudas = rows_to_list(cur.fetchall())
     for d in deudas:
         d["historial"] = get_historial("deuda_pagos", "deuda_id", d["id"], conn)
-    conn.close()
+    cur.close(); conn.close()
     return deudas
 
 @app.post("/api/deudas")
@@ -274,59 +276,57 @@ def crear_deuda(d: Deuda):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO deudas (name,ico,color,total,cuotas,pagadas,pagado,fecha,vence) VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO deudas (name,ico,color,total,cuotas,pagadas,pagado,fecha,vence) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (d.name, d.ico, d.color, d.total, d.cuotas, d.pagadas, d.pagado, d.fecha, d.vence)
     )
+    row_id = cur.fetchone()["id"]
     conn.commit()
-    row_id = cur.lastrowid
     if d.pagado > 0:
-        conn.execute(
-            "INSERT INTO deuda_pagos (deuda_id,fecha,monto,tipo,nota) VALUES (?,?,?,?,?)",
+        cur.execute(
+            "INSERT INTO deuda_pagos (deuda_id,fecha,monto,tipo,nota) VALUES (%s,%s,%s,%s,%s)",
             (row_id, d.fecha, d.pagado, "normal", "Saldo inicial")
         )
         conn.commit()
-    conn.close()
+    cur.close(); conn.close()
     return {"id": row_id, **d.dict()}
 
 @app.put("/api/deudas/{did}")
 def editar_deuda(did: int, d: Deuda):
     conn = get_db()
-    conn.execute(
-        "UPDATE deudas SET name=?,ico=?,color=?,total=?,cuotas=?,pagadas=?,pagado=?,fecha=?,vence=? WHERE id=?",
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE deudas SET name=%s,ico=%s,color=%s,total=%s,cuotas=%s,pagadas=%s,pagado=%s,fecha=%s,vence=%s WHERE id=%s",
         (d.name, d.ico, d.color, d.total, d.cuotas, d.pagadas, d.pagado, d.fecha, d.vence, did)
     )
-    conn.commit()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 @app.delete("/api/deudas/{did}")
 def borrar_deuda(did: int):
     conn = get_db()
-    conn.execute("DELETE FROM deudas WHERE id=?", (did,))
-    conn.execute("DELETE FROM deuda_pagos WHERE deuda_id=?", (did,))
-    conn.commit()
-    conn.close()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM deudas WHERE id=%s", (did,))
+    cur.execute("DELETE FROM deuda_pagos WHERE deuda_id=%s", (did,))
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 @app.post("/api/deudas/{did}/pagos")
 def agregar_pago_deuda(did: int, pago: DeudaPago):
     conn = get_db()
-    deuda = conn.execute("SELECT * FROM deudas WHERE id=?", (did,)).fetchone()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM deudas WHERE id=%s", (did,))
+    deuda = cur.fetchone()
     if not deuda:
         raise HTTPException(404, "Deuda no encontrada")
     deuda = dict(deuda)
     nuevo_pagado = min(deuda["total"], deuda["pagado"] + pago.monto)
     nuevas_pagadas = min(deuda["cuotas"], int(nuevo_pagado / (deuda["total"] / deuda["cuotas"])))
-    conn.execute(
-        "UPDATE deudas SET pagado=?, pagadas=? WHERE id=?",
-        (nuevo_pagado, nuevas_pagadas, did)
-    )
-    conn.execute(
-        "INSERT INTO deuda_pagos (deuda_id,fecha,monto,tipo,nota) VALUES (?,?,?,?,?)",
+    cur.execute("UPDATE deudas SET pagado=%s, pagadas=%s WHERE id=%s", (nuevo_pagado, nuevas_pagadas, did))
+    cur.execute(
+        "INSERT INTO deuda_pagos (deuda_id,fecha,monto,tipo,nota) VALUES (%s,%s,%s,%s,%s)",
         (did, pago.fecha, pago.monto, pago.tipo, pago.nota)
     )
-    conn.commit()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True, "pagado": nuevo_pagado, "pagadas": nuevas_pagadas}
 
 # ── AHORROS ────────────────────────────────────────────────────────────────────
@@ -334,10 +334,12 @@ def agregar_pago_deuda(did: int, pago: DeudaPago):
 @app.get("/api/ahorros")
 def listar_ahorros():
     conn = get_db()
-    ahorros = rows_to_list(conn.execute("SELECT * FROM ahorros ORDER BY id").fetchall())
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM ahorros ORDER BY id")
+    ahorros = rows_to_list(cur.fetchall())
     for a in ahorros:
         a["historial"] = get_historial("ahorro_abonos", "ahorro_id", a["id"], conn)
-    conn.close()
+    cur.close(); conn.close()
     return ahorros
 
 @app.post("/api/ahorros")
@@ -345,54 +347,56 @@ def crear_ahorro(a: Ahorro):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO ahorros (type,name,ico,meta,actual,fecha) VALUES (?,?,?,?,?,?)",
+        "INSERT INTO ahorros (type,name,ico,meta,actual,fecha) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
         (a.type, a.name, a.ico, a.meta, a.actual, a.fecha)
     )
+    row_id = cur.fetchone()["id"]
     conn.commit()
-    row_id = cur.lastrowid
     if a.actual > 0:
-        conn.execute(
-            "INSERT INTO ahorro_abonos (ahorro_id,fecha,monto,nota) VALUES (?,?,?,?)",
+        cur.execute(
+            "INSERT INTO ahorro_abonos (ahorro_id,fecha,monto,nota) VALUES (%s,%s,%s,%s)",
             (row_id, date.today().isoformat(), a.actual, "Saldo inicial")
         )
         conn.commit()
-    conn.close()
+    cur.close(); conn.close()
     return {"id": row_id, **a.dict()}
 
 @app.put("/api/ahorros/{aid}")
 def editar_ahorro(aid: int, a: Ahorro):
     conn = get_db()
-    conn.execute(
-        "UPDATE ahorros SET type=?,name=?,ico=?,meta=?,actual=?,fecha=? WHERE id=?",
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE ahorros SET type=%s,name=%s,ico=%s,meta=%s,actual=%s,fecha=%s WHERE id=%s",
         (a.type, a.name, a.ico, a.meta, a.actual, a.fecha, aid)
     )
-    conn.commit()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 @app.delete("/api/ahorros/{aid}")
 def borrar_ahorro(aid: int):
     conn = get_db()
-    conn.execute("DELETE FROM ahorros WHERE id=?", (aid,))
-    conn.execute("DELETE FROM ahorro_abonos WHERE ahorro_id=?", (aid,))
-    conn.commit()
-    conn.close()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM ahorros WHERE id=%s", (aid,))
+    cur.execute("DELETE FROM ahorro_abonos WHERE ahorro_id=%s", (aid,))
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 @app.post("/api/ahorros/{aid}/abonos")
 def abonar_ahorro(aid: int, abono: AhorroAbono):
     conn = get_db()
-    ahorro = conn.execute("SELECT * FROM ahorros WHERE id=?", (aid,)).fetchone()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM ahorros WHERE id=%s", (aid,))
+    ahorro = cur.fetchone()
     if not ahorro:
         raise HTTPException(404, "Ahorro no encontrado")
-    nuevo = min(dict(ahorro)["meta"], dict(ahorro)["actual"] + abono.monto)
-    conn.execute("UPDATE ahorros SET actual=? WHERE id=?", (nuevo, aid))
-    conn.execute(
-        "INSERT INTO ahorro_abonos (ahorro_id,fecha,monto,nota) VALUES (?,?,?,?)",
+    ahorro = dict(ahorro)
+    nuevo = min(ahorro["meta"], ahorro["actual"] + abono.monto)
+    cur.execute("UPDATE ahorros SET actual=%s WHERE id=%s", (nuevo, aid))
+    cur.execute(
+        "INSERT INTO ahorro_abonos (ahorro_id,fecha,monto,nota) VALUES (%s,%s,%s,%s)",
         (aid, abono.fecha, abono.monto, abono.nota)
     )
-    conn.commit()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True, "actual": nuevo}
 
 # ── INVERSIONES ────────────────────────────────────────────────────────────────
@@ -400,10 +404,12 @@ def abonar_ahorro(aid: int, abono: AhorroAbono):
 @app.get("/api/inversiones")
 def listar_inversiones():
     conn = get_db()
-    invs = rows_to_list(conn.execute("SELECT * FROM inversiones ORDER BY id").fetchall())
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM inversiones ORDER BY id")
+    invs = rows_to_list(cur.fetchall())
     for inv in invs:
         inv["historial"] = get_historial("inv_movimientos", "inv_id", inv["id"], conn)
-    conn.close()
+    cur.close(); conn.close()
     return invs
 
 @app.post("/api/inversiones")
@@ -411,48 +417,47 @@ def crear_inversion(inv: Inversion):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO inversiones (name,entidad,capital,tasa,periodo,fecha,meses) VALUES (?,?,?,?,?,?,?)",
-        (inv.name, inv.entidad, inv.capital, inv.tasa, inv.periodo, inv.fecha, inv.meses)
+        "INSERT INTO inversiones (name,entidad,capital,tasa,periodo,fecha,meses,sin_plazo) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+        (inv.name, inv.entidad, inv.capital, inv.tasa, inv.periodo, inv.fecha, inv.meses, inv.sin_plazo)
     )
+    row_id = cur.fetchone()["id"]
     conn.commit()
-    row_id = cur.lastrowid
-    conn.execute(
-        "INSERT INTO inv_movimientos (inv_id,fecha,monto,nota) VALUES (?,?,?,?)",
+    cur.execute(
+        "INSERT INTO inv_movimientos (inv_id,fecha,monto,nota) VALUES (%s,%s,%s,%s)",
         (row_id, inv.fecha, inv.capital, "Apertura")
     )
-    conn.commit()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
     return {"id": row_id, **inv.dict()}
 
 @app.put("/api/inversiones/{iid}")
 def editar_inversion(iid: int, inv: Inversion):
     conn = get_db()
-    conn.execute(
-        "UPDATE inversiones SET name=?,entidad=?,capital=?,tasa=?,periodo=?,fecha=?,meses=? WHERE id=?",
-        (inv.name, inv.entidad, inv.capital, inv.tasa, inv.periodo, inv.fecha, inv.meses, iid)
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE inversiones SET name=%s,entidad=%s,capital=%s,tasa=%s,periodo=%s,fecha=%s,meses=%s,sin_plazo=%s WHERE id=%s",
+        (inv.name, inv.entidad, inv.capital, inv.tasa, inv.periodo, inv.fecha, inv.meses, inv.sin_plazo, iid)
     )
-    conn.commit()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 @app.delete("/api/inversiones/{iid}")
 def borrar_inversion(iid: int):
     conn = get_db()
-    conn.execute("DELETE FROM inversiones WHERE id=?", (iid,))
-    conn.execute("DELETE FROM inv_movimientos WHERE inv_id=?", (iid,))
-    conn.commit()
-    conn.close()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM inversiones WHERE id=%s", (iid,))
+    cur.execute("DELETE FROM inv_movimientos WHERE inv_id=%s", (iid,))
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 @app.post("/api/inversiones/{iid}/movimientos")
 def agregar_mov_inv(iid: int, mov: InvMovimiento):
     conn = get_db()
-    conn.execute(
-        "INSERT INTO inv_movimientos (inv_id,fecha,monto,nota) VALUES (?,?,?,?)",
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO inv_movimientos (inv_id,fecha,monto,nota) VALUES (%s,%s,%s,%s)",
         (iid, mov.fecha, mov.monto, mov.nota)
     )
-    conn.commit()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 # ── RECURRENTES ────────────────────────────────────────────────────────────────
@@ -460,10 +465,12 @@ def agregar_mov_inv(iid: int, mov: InvMovimiento):
 @app.get("/api/recurrentes")
 def listar_recurrentes():
     conn = get_db()
-    recs = rows_to_list(conn.execute("SELECT * FROM recurrentes ORDER BY id").fetchall())
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM recurrentes ORDER BY id")
+    recs = rows_to_list(cur.fetchall())
     for r in recs:
         r["historial"] = get_historial("recurrente_pagos", "rec_id", r["id"], conn)
-    conn.close()
+    cur.close(); conn.close()
     return recs
 
 @app.post("/api/recurrentes")
@@ -471,41 +478,54 @@ def crear_recurrente(r: Recurrente):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO recurrentes (name,ico,color,monto,dia,nota) VALUES (?,?,?,?,?,?)",
+        "INSERT INTO recurrentes (name,ico,color,monto,dia,nota) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
         (r.name, r.ico, r.color, r.monto, r.dia, r.nota)
     )
-    conn.commit()
-    row_id = cur.lastrowid
-    conn.close()
+    row_id = cur.fetchone()["id"]
+    conn.commit(); cur.close(); conn.close()
     return {"id": row_id, **r.dict()}
 
 @app.put("/api/recurrentes/{rid}")
 def editar_recurrente(rid: int, r: Recurrente):
     conn = get_db()
-    conn.execute(
-        "UPDATE recurrentes SET name=?,ico=?,color=?,monto=?,dia=?,nota=? WHERE id=?",
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE recurrentes SET name=%s,ico=%s,color=%s,monto=%s,dia=%s,nota=%s WHERE id=%s",
         (r.name, r.ico, r.color, r.monto, r.dia, r.nota, rid)
     )
-    conn.commit()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 @app.delete("/api/recurrentes/{rid}")
 def borrar_recurrente(rid: int):
     conn = get_db()
-    conn.execute("DELETE FROM recurrentes WHERE id=?", (rid,))
-    conn.execute("DELETE FROM recurrente_pagos WHERE rec_id=?", (rid,))
-    conn.commit()
-    conn.close()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM recurrentes WHERE id=%s", (rid,))
+    cur.execute("DELETE FROM recurrente_pagos WHERE rec_id=%s", (rid,))
+    conn.commit(); cur.close(); conn.close()
     return {"ok": True}
 
 @app.post("/api/recurrentes/{rid}/pagos")
 def registrar_pago_rec(rid: int, pago: RecPago):
+    """Registra el pago de un gasto fijo y lo crea como movimiento automáticamente."""
     conn = get_db()
-    conn.execute(
-        "INSERT INTO recurrente_pagos (rec_id,fecha,monto) VALUES (?,?,?)",
+    cur = conn.cursor()
+    # Obtener info del recurrente
+    cur.execute("SELECT * FROM recurrentes WHERE id=%s", (rid,))
+    rec = cur.fetchone()
+    if not rec:
+        raise HTTPException(404, "Gasto fijo no encontrado")
+    rec = dict(rec)
+    # Guardar en historial de recurrente
+    cur.execute(
+        "INSERT INTO recurrente_pagos (rec_id,fecha,monto) VALUES (%s,%s,%s)",
         (rid, pago.fecha, pago.monto)
     )
-    conn.commit()
-    conn.close()
-    return {"ok": True}
+    # Crear movimiento automático en la tabla de movimientos
+    cur.execute(
+        "INSERT INTO movimientos (tipo,cat,cat_label,cat_ico,cat_color,descr,monto,fecha) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+        ("gasto", "recurrente", rec["name"], rec["ico"], rec["color"], rec["name"], pago.monto, pago.fecha)
+    )
+    mov_id = cur.fetchone()["id"]
+    conn.commit(); cur.close(); conn.close()
+    return {"ok": True, "movimiento_id": mov_id}
