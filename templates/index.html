@@ -334,10 +334,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
     </div>
     <div id="fields-sav" class="hidden">
-      <div class="sav-type-row">
-        <button class="sav-type-btn sel-meta" id="sav-btn-meta" onclick="setSavType('meta')">🎯<span style="font-size:11px">Meta de ahorro</span></button>
-        <button class="sav-type-btn" id="sav-btn-inv" onclick="setSavType('inversion')">📈<span style="font-size:11px">CDT / Inversión</span></button>
-      </div>
+      <div class="sav-type-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          <button class="sav-type-btn sel-meta" id="sav-btn-meta" onclick="setSavType('meta')">🎯<span style="font-size:11px">Meta de ahorro</span></button>
+          <button class="sav-type-btn" id="sav-btn-inv-cdt" onclick="setSavType('cdt')">📈<span style="font-size:11px">CDT / Inversión</span></button>
+          <button class="sav-type-btn" id="sav-btn-inv-ar" onclick="setSavType('ar')">🏦<span style="font-size:11px">Cuenta alto rendimiento</span></button>
+        </div>
       <div id="sav-fields-meta">
         <div class="form-grid">
           <div class="form-row"><label>Nombre</label><input type="text" id="sav-name" placeholder="Viaje a Cartagena"></div>
@@ -364,7 +365,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div class="form-row"><label>Período</label><select id="inv-periodo"><option value="anual">Anual (E.A.)</option><option value="mensual">Mensual</option></select></div>
           <div class="form-row"><label>Fecha inicio</label><input type="date" id="inv-fecha"></div>
         </div>
-        <div class="form-row"><label>Duración (meses)</label><input type="number" id="inv-meses" placeholder="12" min="1"></div>
+        <div class="form-row" id="inv-meses-row"><label>Duración (meses)</label><input type="number" id="inv-meses" placeholder="12" min="1"></div>
         <div class="info-box" id="inv-preview">Completa los campos para ver la proyección.</div>
       </div>
     </div>
