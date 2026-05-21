@@ -170,6 +170,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .loading{text-align:center;padding:2rem;color:var(--txt2);font-size:14px}
 .paid-section-title{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:#0F6E56;margin:.875rem 0 .5rem;cursor:pointer}
 .arrow-toggle{transition:.2s;display:inline-block;font-size:11px}.arrow-toggle.open{transform:rotate(90deg)}
+body.force-dark{filter:invert(1) hue-rotate(180deg)}
+body.force-light{filter:none}
 </style>
 </head>
 <body>
@@ -179,10 +181,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="topbar">
   <div class="topbar-titles">
     <div class="topbar-date" id="topbar-date"></div>
-    <div class="topbar-name">Mis finanzas</div>
+    <div id="app-title" class="topbar-name">Mis finanzas</div>
   </div>
   <button class="btn-top" onclick="openTips()" title="Consejos">💡</button>
-  <button class="btn-add" onclick="openModal()">＋ Agregar</button>
+  <button id="btn-agregar-top" class="btn-add" onclick="openModal()">＋ Agregar</button>
   <button class="btn-top" onclick="openSettings()" title="Configuración">⚙️</button>
 </div>
 
