@@ -172,6 +172,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .arrow-toggle{transition:.2s;display:inline-block;font-size:11px}.arrow-toggle.open{transform:rotate(90deg)}
 body.force-dark{filter:invert(1) hue-rotate(180deg)}
 body.force-light{filter:none}
+body { background: var(--bg); }
 </style>
 </head>
 <body>
@@ -184,7 +185,7 @@ body.force-light{filter:none}
     <div id="app-title" class="topbar-name">Mis finanzas</div>
   </div>
   <button class="btn-top" onclick="openTips()" title="Consejos">💡</button>
-  <button id="btn-agregar-top" class="btn-add" onclick="openModal()">＋ Agregar</button>
+  <button class="btn-add" id="btn-agregar-top" onclick="openModal()">＋ Agregar</button>
   <button class="btn-top" onclick="openSettings()" title="Configuración">⚙️</button>
 </div>
 
@@ -194,21 +195,21 @@ body.force-light{filter:none}
   <!-- RESUMEN -->
   <div id="tab-resumen" class="section active">
     <div class="summary-grid">
-      <div class="metric"><div class="metric-icon">📈</div><div class="metric-label">Ingresos</div><div class="metric-value pos" id="t-ing">$0</div></div>
-      <div class="metric"><div class="metric-icon">📉</div><div class="metric-label">Gastos</div><div class="metric-value neg" id="t-gas">$0</div></div>
-      <div class="metric"><div class="metric-icon">💵</div><div class="metric-label">Disponible</div><div class="metric-value neu" id="t-dis">$0</div></div>
-      <div class="metric"><div class="metric-icon">💳</div><div class="metric-label">Deuda total</div><div class="metric-value neg" id="t-deu">$0</div></div>
+      <div class="metric"><div class="metric-icon">📈</div><div class="metric-label" id="lbl-ingresos">Ingresos</div><div class="metric-value pos" id="t-ing">$0</div></div>
+      <div class="metric"><div class="metric-icon">📉</div><div class="metric-label" id="lbl-gastos>Gastos</div><div class="metric-value neg" id="t-gas">$0</div></div>
+      <div class="metric"><div class="metric-icon">💵</div><div class="metric-label" id="lbl-disponible">Disponible</div><div class="metric-value neu" id="t-dis">$0</div></div>
+      <div class="metric"><div class="metric-icon">💳</div><div class="metric-label" id="lbl-deuda-total">Deuda total</div><div class="metric-value neg" id="t-deu">$0</div></div>
     </div>
-    <div class="card"><div class="card-title">Distribución de gastos</div><div id="gasto-bars"><div class="loading">Sin gastos aún.</div></div></div>
+    <div class="card"><div class="card-title" id="lbl-dist-gastos">Distribución de gastos</div><div id="gasto-bars"><div class="loading">Sin gastos aún.</div></div></div>
     <div class="card">
-      <div class="card-title">Ingresos vs gastos</div>
+      <div class="card-title" id="lbl-ing-vs-gas">Ingresos vs gastos</div>
       <div style="position:relative;height:130px"><canvas id="barChart" role="img" aria-label="Comparativo de ingresos y gastos mensuales">Comparativo mensual de ingresos y gastos.</canvas></div>
       <div style="display:flex;gap:14px;margin-top:6px;font-size:11px;color:var(--txt2)">
         <span style="display:flex;align-items:center;gap:3px"><span style="width:9px;height:9px;border-radius:2px;background:#1D9E75;display:inline-block"></span>Ingresos</span>
         <span style="display:flex;align-items:center;gap:3px"><span style="width:9px;height:9px;border-radius:2px;background:#D85A30;display:inline-block"></span>Gastos</span>
       </div>
     </div>
-    <div class="card"><div class="card-title">Últimos abonos a deudas</div><div id="historial-res"><div class="loading">Sin abonos aún.</div></div></div>
+    <div class="card"><div class="card-title" id="lbl-ultimos-abonos">Últimos abonos a deudas</div><div id="historial-res"><div class="loading">Sin abonos aún.</div></div></div>
   </div>
 
   <!-- MOVIMIENTOS -->
