@@ -172,7 +172,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .arrow-toggle{transition:.2s;display:inline-block;font-size:11px}.arrow-toggle.open{transform:rotate(90deg)}
 body.force-dark{filter:invert(1) hue-rotate(180deg)}
 body.force-light{filter:none}
-body { background: var(--bg); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--txt);
+  min-height: 100vh;
+  overflow: hidden;
+}
 </style>
 </head>
 <body>
@@ -196,7 +202,7 @@ body { background: var(--bg); }
   <div id="tab-resumen" class="section active">
     <div class="summary-grid">
       <div class="metric"><div class="metric-icon">📈</div><div class="metric-label" id="lbl-ingresos">Ingresos</div><div class="metric-value pos" id="t-ing">$0</div></div>
-      <div class="metric"><div class="metric-icon">📉</div><div class="metric-label" id="lbl-gastos>Gastos</div><div class="metric-value neg" id="t-gas">$0</div></div>
+      <div class="metric"><div class="metric-icon">📉</div><div class="metric-label" id="lbl-gastos">Gastos</div><div class="metric-value neg" id="t-gas">$0</div></div>
       <div class="metric"><div class="metric-icon">💵</div><div class="metric-label" id="lbl-disponible">Disponible</div><div class="metric-value neu" id="t-dis">$0</div></div>
       <div class="metric"><div class="metric-icon">💳</div><div class="metric-label" id="lbl-deuda-total">Deuda total</div><div class="metric-value neg" id="t-deu">$0</div></div>
     </div>
